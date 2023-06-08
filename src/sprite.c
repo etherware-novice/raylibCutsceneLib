@@ -18,23 +18,16 @@ spritesheet loadNewSpritesheet( const char *filePath, unsigned tWidth, unsigned 
 	newSpritesheet.rotation = 0;
 	newSpritesheet.flipped = 0;
 
+	newSpritesheet.cache = malloc(sizeof(cacheInfo));
+
 	loadSpritesheetOffset( &newSpritesheet, 0 );
 	return newSpritesheet;
 }
 
-void loadSpritesheetOffset( spritesheet *sheet, unsigned id )
+static Texture2D generateSpritesheetOffsetTexture( spritesheet *sheet, unsigned id )
 {
-	if( !sheet ) return;
-	if( sheet->currentID == id ) return;
-	sheet->currentID = id;
-
-	TraceLog( LOG_INFO, TextFormat( 
-				"SPRITESHEET: Loading offset %u from image %d x %d", 
-				id, sheet->fullSheet.width, sheet->fullSheet.height 
-				) );
-
-
 	Image cutSprite;
+	Texture2D returnedSprite;
 	Rectangle slicer;
 	unsigned x, y;
 	id *= (sheet->tileWidth);
@@ -51,29 +44,102 @@ void loadSpritesheetOffset( spritesheet *sheet, unsigned id )
 	if( sheet->flipped & 1 ) ImageFlipHorizontal( &cutSprite );
 	if( sheet->flipped & 2 ) ImageFlipVertical( &cutSprite );
 
-	UnloadTexture(sheet->currentDisplay);
-	sheet->currentDisplay = LoadTextureFromImage(cutSprite);
+	returnedSprite = LoadTextureFromImage(cutSprite);
 
 	UnloadImage(cutSprite);
 }
 
-void spritesheetFlipInPlace( spritesheet *sheet, unsigned flipped )
+static *Texture2D cachedSpritesheetOffset( spritesheet *sheet, unsigned id )
+{
+	unsigned i, freedId, lowestUsage;
+	cacheInfo *cacheTable = sheet->cache;
+	Texture2D **fillSpot = NULL;
+	
+	for( i = 0; i < CACHESIZE; i++ )
+	{
+		if( cacheTable->cacheAssocData[i] == id ) 
+		{
+			cacheTable->usageData[i]++;
+			return cacheTable->cacheData[i];
+		}
+		if( cacheTable->usageData[i] > lowestUsage )
+		{
+			freedId = i;
+			lowestUsage = cacheTable->usageData[i];
+			fillSpot = cacheTable->cacheData + i;
+		}
+	}
+	
+	if( *fillSpot != NULL )
+	{
+		TraceLog(LOG_INFO, TextFormat( "SPRITESHEET: Unloading offset %d from cache", cacheTable->cacheAssocData[freedId] ));
+		UnloadTexture( *fillSpot );
+		free( *fillSpot );
+	}
+
+	*fillSpot = malloc(sizeof(Texture2D));
+	**fillSpot = generateSpritesheetOffsetTexture( sheet, id );
+	cacheTable->cacheAssocData[freedId] = id;
+	cacheTable->usageData[freedId]++;
+
+	return *fillSpot;
+}
+
+void loadSpritesheetOffset( spritesheet *sheet, unsigned id )
+{
+	if( !sheet ) return;
+	if( sheet->currentID == id ) return;
+	sheet->currentID = id;
+
+	TraceLog( LOG_INFO, TextFormat( 
+				"SPRITESHEET: Loading offset %u from image %d x %d", 
+				id, sheet->fullSheet.width, sheet->fullSheet.height 
+				) );
+
+	sheet->currentDisplay = cachedSpritesheetOffset( sheet, id );
+}
+
+void spritesheetFlip( spritesheet *sheet, unsigned flipped )
 {
 	if( flipped == sheet->flipped ) return;
 	sheet->flipped = flipped;
 	sheet->currentID++;
+
+	freeSpritesheetCache( usedSheet );
 	loadSpritesheetOffset( sheet, sheet->currentID - 1 );
 }
 
 void drawSpritesheet( spritesheet sheet )
 {
-	DrawTextureEx( sheet.currentDisplay, sheet.pos, sheet.rotation, sheet.scale, WHITE );
+	DrawTextureEx( *(sheet.currentDisplay), sheet.pos, sheet.rotation, sheet.scale, WHITE );
+}
+
+void freeSpritesheetCache( spritesheet *sheet )
+{
+	unsigned i;
+	cacheInfo *cacheTable = sheet->cache;
+	Texture2D **currentCacheIndex = NULL;
+
+	if( cacheTable == NULL ) return;
+
+	for( i = 0, i < CACHESIZE; i++ )
+	{
+		currentCacheIndex = cacheTable->cachedData + i;
+		if( *currentCacheIndex == NULL ) continue;
+		UnloadTexture(**currentCacheIndex);
+		free(*currentCacheIndex);
+		*currentCacheIndex = NULL;
+
+		cacheTable->usageData[i] = 0;
+	}
+
+	TraceLog( LOG_INFO, TextFormat("SPRITESHEET: Clearing cache for spritesheet %p", sheet) );
 }
 
 void freeSpritesheetData( spritesheet *usedSheet )
 {
+	freeSpritesheetCache( usedSheet );
 	UnloadImage(usedSheet->fullSheet);
-	UnloadTexture(usedSheet->currentDisplay);
 }
 
 
@@ -111,3 +177,4 @@ int main()
 	CloseWindow();
 }
 */
+

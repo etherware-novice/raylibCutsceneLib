@@ -5,9 +5,18 @@
 #include <stdbool.h>
 #include <stdlib.h>
 
+#define FPS 60
+#define CACHESIZE 5
+
+typedef struct {
+	void *cachedData[CACHESIZE];    // the data thats cached, should be casted obviously
+	unsigned usageData[CACHESIZE];  // should be used to control which entry is freed when needed
+	int cacheAssocData[CACHESIZE];  // generic info field for associated cache data
+} cacheInfo;  // i reccomend mallocing this as needed instead of using directly
+
 typedef struct {
 	Image fullSheet;
-	Texture2D currentDisplay;
+	Texture2D *currentDisplay;
 	unsigned currentID;
 	unsigned flipped;
 	unsigned tileWidth;
@@ -16,9 +25,10 @@ typedef struct {
 	Vector2 pos;
 	int scale;
 	float rotation;
+
+	cacheInfo *cache;
 } spritesheet;
 
-#define FPS 60
 
 #define ARR_SIZE(arr) ( sizeof((arr)) / sizeof((arr[0])) )
 #define VECTOR2ZERO (Vector2) {0, 0}
