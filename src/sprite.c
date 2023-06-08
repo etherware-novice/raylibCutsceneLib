@@ -34,8 +34,8 @@ static Texture2D generateSpritesheetOffsetTexture( spritesheet *sheet, unsigned 
 
 	x = id % (sheet->fullSheet.width);
 	y = (id / (sheet->fullSheet.width)) * sheet->tileHeight;
-	if( y + sheet->tileWidth  > sheet->fullSheet.height ) return;  // too far
-								       //
+	if( y + sheet->tileWidth  > sheet->fullSheet.height ) y = sheet->fullSheet.height - sheet->tileHeight;  // too far
+
 	TraceLog( LOG_INFO, TextFormat( "SPRITESHEET: Loading pos %u (%u x %u) with size %u x %u", id, x, y, sheet->tileWidth, sheet->tileHeight ) );
 
 	slicer = (Rectangle) { x, y, sheet->tileWidth, sheet->tileHeight };
@@ -45,11 +45,11 @@ static Texture2D generateSpritesheetOffsetTexture( spritesheet *sheet, unsigned 
 	if( sheet->flipped & 2 ) ImageFlipVertical( &cutSprite );
 
 	returnedSprite = LoadTextureFromImage(cutSprite);
-
 	UnloadImage(cutSprite);
+	return returnedSprite;
 }
 
-static *Texture2D cachedSpritesheetOffset( spritesheet *sheet, unsigned id )
+static Texture2D *cachedSpritesheetOffset( spritesheet *sheet, unsigned id )
 {
 	unsigned i, freedId, lowestUsage;
 	cacheInfo *cacheTable = sheet->cache;
@@ -60,24 +60,26 @@ static *Texture2D cachedSpritesheetOffset( spritesheet *sheet, unsigned id )
 		if( cacheTable->cacheAssocData[i] == id ) 
 		{
 			cacheTable->usageData[i]++;
-			return cacheTable->cacheData[i];
+			return cacheTable->cachedData[i];
 		}
 		if( cacheTable->usageData[i] > lowestUsage )
 		{
 			freedId = i;
 			lowestUsage = cacheTable->usageData[i];
-			fillSpot = cacheTable->cacheData + i;
+			fillSpot = cacheTable->cachedData + i;
 		}
 	}
 	
 	if( *fillSpot != NULL )
 	{
 		TraceLog(LOG_INFO, TextFormat( "SPRITESHEET: Unloading offset %d from cache", cacheTable->cacheAssocData[freedId] ));
-		UnloadTexture( *fillSpot );
+		UnloadTexture( **fillSpot );
 		free( *fillSpot );
 	}
-
-	*fillSpot = malloc(sizeof(Texture2D));
+	else
+	{
+		*fillSpot = malloc(sizeof(Texture2D));
+	}
 	**fillSpot = generateSpritesheetOffsetTexture( sheet, id );
 	cacheTable->cacheAssocData[freedId] = id;
 	cacheTable->usageData[freedId]++;
@@ -87,6 +89,8 @@ static *Texture2D cachedSpritesheetOffset( spritesheet *sheet, unsigned id )
 
 void loadSpritesheetOffset( spritesheet *sheet, unsigned id )
 {
+	Texture2D *newTexture = NULL;
+
 	if( !sheet ) return;
 	if( sheet->currentID == id ) return;
 	sheet->currentID = id;
@@ -96,7 +100,9 @@ void loadSpritesheetOffset( spritesheet *sheet, unsigned id )
 				id, sheet->fullSheet.width, sheet->fullSheet.height 
 				) );
 
-	sheet->currentDisplay = cachedSpritesheetOffset( sheet, id );
+
+	newTexture = cachedSpritesheetOffset( sheet, id );
+	if( newTexture ) sheet->currentDisplay = newTexture;
 }
 
 void spritesheetFlip( spritesheet *sheet, unsigned flipped )
@@ -105,12 +111,13 @@ void spritesheetFlip( spritesheet *sheet, unsigned flipped )
 	sheet->flipped = flipped;
 	sheet->currentID++;
 
-	freeSpritesheetCache( usedSheet );
+	freeSpritesheetCache( sheet );
 	loadSpritesheetOffset( sheet, sheet->currentID - 1 );
 }
 
 void drawSpritesheet( spritesheet sheet )
 {
+	if( sheet.currentDisplay == NULL ) return;
 	DrawTextureEx( *(sheet.currentDisplay), sheet.pos, sheet.rotation, sheet.scale, WHITE );
 }
 
@@ -122,7 +129,7 @@ void freeSpritesheetCache( spritesheet *sheet )
 
 	if( cacheTable == NULL ) return;
 
-	for( i = 0, i < CACHESIZE; i++ )
+	for( i = 0; i < CACHESIZE; i++ )
 	{
 		currentCacheIndex = cacheTable->cachedData + i;
 		if( *currentCacheIndex == NULL ) continue;

@@ -35,11 +35,11 @@ interrupt cutsceneAct(unsigned id, unsigned frame, spritesheet *staticAssets, us
 			break;
 
 			case 800:
-			spritesheetFlipInPlace( staticAssets + 1, 3 );
+			spritesheetFlip( staticAssets + 1, 3 );
 			break;
 			
 			case 1000:
-			spritesheetFlipInPlace( staticAssets + 1, 0 );
+			spritesheetFlip( staticAssets + 1, 0 );
 			break;
 
 			case 1200:

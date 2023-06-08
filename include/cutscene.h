@@ -36,8 +36,9 @@ typedef struct {
 // sprite.c
 spritesheet loadNewSpritesheet( const char *filePath, unsigned tWidth, unsigned tHeight );
 void loadSpritesheetOffset( spritesheet *sheet, unsigned id );
-void spritesheetFlipInPlace( spritesheet *sheet, unsigned flipped );
+void spritesheetFlip( spritesheet *sheet, unsigned flipped );
 void drawSpritesheet( spritesheet sheet );
+void freeSpritesheetCache( spritesheet *sheet );
 void freeSpritesheetData( spritesheet *usedSheet );
 
 // cutscene.c

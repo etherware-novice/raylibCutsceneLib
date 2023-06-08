@@ -37,7 +37,7 @@ main: libcutscene.a main.c cutsceneData.o
 	$(CC) $(CFLAGS) $(LDFLAGS) $(LDLIBS) -o main $^ -lcutscene
 
 clean:
-	@$(RM) -vr $(LOCALLIBDIR)/
+	@$(RM) -vr $(LOCALLIBDIR)/*
 	@$(RM) -v *.o
 
 install: libcutscene.a | cutscene.h
@@ -47,7 +47,7 @@ install: libcutscene.a | cutscene.h
 	$(INSTALL_DATA) $(INSTALL_FLAGS_DIR) -d $(DESTDIR)$(includedir)
 	$(INSTALL_DATA) $(INSTALL_FLAGS_FILE) -C $(LOCALINCLUDEDIR)/* -t $(DESTDIR)$(includedir)/
 
-$(LOCALLIBDIR)/libcutscene.a: $(LIBOBJ)
+$(LOCALLIBDIR)/libcutscene.a: $(LIBOBJ) | $(LOCALLIBDIR)/
 	$(AR) rsv $@ $?
 
 %.o: %.c $(LDLIBS) | $(LOCALLIBDIR)/
