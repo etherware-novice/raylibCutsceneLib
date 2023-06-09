@@ -19,6 +19,8 @@ spritesheet loadNewSpritesheet( const char *filePath, unsigned tWidth, unsigned 
 	newSpritesheet.flipped = 0;
 
 	newSpritesheet.cache = malloc(sizeof(cacheInfo));
+	memset( newSpritesheet.cache, 0, sizeof(cacheInfo) );
+
 
 	loadSpritesheetOffset( &newSpritesheet, 0 );
 	return newSpritesheet;
@@ -123,6 +125,8 @@ void drawSpritesheet( spritesheet sheet )
 
 void freeSpritesheetCache( spritesheet *sheet )
 {
+	TraceLog( LOG_INFO, TextFormat("SPRITESHEET: Clearing cache for spritesheet %p", sheet) );
+	
 	unsigned i;
 	cacheInfo *cacheTable = sheet->cache;
 	Texture2D **currentCacheIndex = NULL;
@@ -140,7 +144,6 @@ void freeSpritesheetCache( spritesheet *sheet )
 		cacheTable->usageData[i] = 0;
 	}
 
-	TraceLog( LOG_INFO, TextFormat("SPRITESHEET: Clearing cache for spritesheet %p", sheet) );
 }
 
 void freeSpritesheetData( spritesheet *usedSheet )
